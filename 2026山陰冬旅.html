@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#1e293b">
+    <title>2026 山陰冬旅</title>
+    
+    <!-- 引入 React 和 Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 Icon 庫 (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* 隱藏捲軸但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* 防止 iOS 橡皮筋效果 */
+        body {
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 飄雪動畫 */
+        @keyframes snow {
+            0% { transform: translateY(-10px); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: rgba(255, 255, 255, 0.4);
+            animation: snow 10s linear infinite;
+            pointer-events: none;
+        }
+        /* 安全區域設定 (針對 iPhone瀏海) */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+<body class="bg-[#fdfbf7] text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // 為了在 HTML 中使用 Lucide Icons，我們創建一個簡單的映射組件
+        const Icon = ({ name, size = 24, className }) => {
+            useEffect(() => {
+                lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className}></i>;
+        };
+
+        const TravelPlanner = () => {
+            // 定義日期範圍 (2026/1/22 - 1/26)
+            const dates = [
+                { date: '2026-01-22', label: '初四', fullDate: '1月22日 (四)', theme: '抵達' },
+                { date: '2026-01-23', label: '初五', fullDate: '1月23日 (五)', theme: '鳥取' },
+                { date: '2026-01-24', label: '初六', fullDate: '1月24日 (六)', theme: '島根' },
+                { date: '2026-01-25', label: '初七', fullDate: '1月25日 (日)', theme: '溫泉' },
+                { date: '2026-01-26', label: '初八', fullDate: '1月26日 (一)', theme: '返程' },
+            ];
+
+            const [activeDate, setActiveDate] = useState(dates[0].date);
+            const [showInstallGuide, setShowInstallGuide] = useState(false);
+            
+            // 預設行程
+            const initialItinerary = {
+                '2026-01-22': [
+                    { id: 1, time: '14:30', activity: '抵達米子鬼太郎機場', location: '米子市', type: 'transport' }
+                ],
+                '2026-01-23': [
+                    { id: 2, time: '09:00', activity: '鳥取砂丘 (冬之雪景)', location: '鳥取市', type: 'sightseeing' },
+                    { id: 3, time: '12:00', activity: '品嚐松葉蟹大餐', location: '賀露港', type: 'food' }
+                ],
+                '2026-01-24': [
+                    { id: 4, time: '10:00', activity: '出雲大社 參拜結緣', location: '出雲市', type: 'sightseeing' }
+                ],
+                '2026-01-25': [],
+                '2026-01-26': [
+                    { id: 5, time: '11:00', activity: '購買伴手禮 (白兔饅頭)', location: '車站', type: 'shopping' }
+                ],
+            };
+
+            const [itinerary, setItinerary] = useState(() => {
+                const saved = localStorage.getItem('myTrip2026_Sanin_V2');
+                return saved ? JSON.parse(saved) : initialItinerary;
+            });
+
+            const [newTime, setNewTime] = useState('');
+            const [newActivity, setNewActivity] = useState('');
+            const [newLocation, setNewLocation] = useState('');
+
+            useEffect(() => {
+                localStorage.setItem('myTrip2026_Sanin_V2', JSON.stringify(itinerary));
+                lucide.createIcons(); // 確保圖標在渲染後更新
+            }, [itinerary, activeDate]);
+
+            const handleAddActivity = () => {
+                if (!newActivity) return alert('請輸入行程內容');
+                
+                const newItem = {
+                    id: Date.now(),
+                    time: newTime || '待定',
+                    activity: newActivity,
+                    location: newLocation,
+                    type: 'general' 
+                };
+
+                setItinerary(prev => {
+                    const currentList = prev[activeDate] || [];
+                    const updatedList = [...currentList, newItem].sort((a, b) => a.time.localeCompare(b.time));
+                    return { ...prev, [activeDate]: updatedList };
+                });
+
+                setNewTime('');
+                setNewActivity('');
+                setNewLocation('');
+            };
+
+            const handleDeleteActivity = (id) => {
+                if(!window.confirm('確定要刪除嗎？')) return;
+                setItinerary(prev => ({
+                    ...prev,
+                    [activeDate]: prev[activeDate].filter(item => item.id !== id)
+                }));
+            };
+
+            const handleExport = () => {
+                let content = "❄️ 2026 山陰冬日之旅 (1/22 - 1/26)\n\n";
+                dates.forEach(d => {
+                    content += `📅 ${d.fullDate} 【${d.label}】\n`;
+                    const items = itinerary[d.date] || [];
+                    if (items.length === 0) content += "   (本日自由探索)\n";
+                    else {
+                        items.forEach(item => {
+                            content += `   ● ${item.time} | ${item.activity}`;
+                            if (item.location) content += ` (@${item.location})`;
+                            content += "\n";
+                        });
+                    }
+                    content += "\n-----------------------------------\n\n";
+                });
+
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = '2026_山陰之旅.txt';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const currentDayInfo = dates.find(d => d.date === activeDate);
+
+            // 根據活動類型選擇圖標名稱
+            const getIconName = (text) => {
+                if (text.includes('吃') || text.includes('餐') || text.includes('蟹') || text.includes('牛')) return 'utensils';
+                if (text.includes('車') || text.includes('機') || text.includes('移動')) return 'train-front';
+                if (text.includes('拍') || text.includes('景') || text.includes('社')) return 'camera';
+                return 'sparkles';
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans relative selection:bg-rose-200 pb-safe">
+                    
+                    {/* Header */}
+                    <header className="relative bg-gradient-to-b from-[#1e293b] to-[#334155] text-white pt-10 pb-12 px-6 shadow-lg overflow-hidden shrink-0">
+                        <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white to-transparent"></div>
+                        
+                        {/* 飄雪 */}
+                        {[...Array(6)].map((_, i) => (
+                            <div key={i} className="snowflake" style={{ 
+                                left: `${Math.random() * 100}%`, 
+                                animationDuration: `${5 + Math.random() * 5}s`, 
+                                animationDelay: `${Math.random() * 5}s`,
+                                fontSize: `${10 + Math.random() * 20}px`
+                            }}>❄</div>
+                        ))}
+
+                        <div className="relative max-w-2xl mx-auto flex justify-between items-end">
+                            <div>
+                                <div className="flex items-center gap-2 text-rose-300 font-medium text-sm tracking-widest mb-1">
+                                    <Icon name="snowflake" size={14} /> WINTER JOURNEY
+                                </div>
+                                <h1 className="text-3xl font-bold tracking-wide font-serif">山陰冬旅</h1>
+                                <p className="text-slate-300 text-xs mt-2 font-light">2026.01.22 — 01.26</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setShowInstallGuide(true)}
+                                    className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-2 rounded-full transition"
+                                >
+                                    <Icon name="download" size={16} />
+                                </button>
+                                <button 
+                                    onClick={handleExport}
+                                    className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-full text-xs transition flex items-center gap-2 group"
+                                >
+                                    <span>匯出</span>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Date Tabs */}
+                    <div className="sticky top-0 z-20 bg-[#fdfbf7]/95 backdrop-blur-sm pt-4 pb-2 shadow-sm">
+                        <div className="max-w-2xl mx-auto px-4 overflow-x-auto no-scrollbar">
+                            <div className="flex gap-3 min-w-max pb-2">
+                                {dates.map((d) => {
+                                    const isActive = activeDate === d.date;
+                                    return (
+                                        <button
+                                            key={d.date}
+                                            onClick={() => setActiveDate(d.date)}
+                                            className={`relative flex flex-col items-center justify-center px-4 py-3 rounded-xl transition-all duration-300 border ${
+                                                isActive
+                                                    ? 'bg-[#be123c] text-white border-[#be123c] shadow-lg shadow-rose-900/20 translate-y-[-2px]'
+                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span className={`text-[10px] tracking-wider mb-1 ${isActive ? 'text-rose-100' : 'text-slate-400'}`}>
+                                                {d.label}
+                                            </span>
+                                            <span className="text-sm font-bold font-serif whitespace-nowrap">
+                                                {d.date.split('-')[2]} <span className="text-xs font-normal opacity-80">日</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full pb-36">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-8 w-1 bg-[#be123c] rounded-full"></div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 font-serif">{currentDayInfo.fullDate}</h2>
+                                <p className="text-xs text-slate-500 tracking-wide mt-0.5">今日主題：{currentDayInfo.theme}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {(itinerary[activeDate] || []).length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">
+                                    <div className="mb-4 opacity-20"><Icon name="snowflake" size={48} /></div>
+                                    <p className="text-sm font-light">冬日靜好，暫無行程</p>
+                                    <p className="text-xs opacity-60 mt-1">點擊下方按鈕規劃旅途</p>
+                                </div>
+                            ) : (
+                                (itinerary[activeDate] || []).map((item) => (
+                                    <div key={item.id} className="group relative bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all duration-300 flex gap-4 overflow-hidden">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-900 to-indigo-700"></div>
+                                        <div className="flex flex-col items-center pt-1 min-w-[3.5rem]">
+                                            <span className="text-lg font-bold text-indigo-900 font-mono tracking-tighter">{item.time}</span>
+                                            <div className="h-full w-px bg-slate-100 my-2 relative">
+                                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-slate-200"></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 pb-1 z-10">
+                                            <h3 className="text-base font-bold text-slate-800 mb-1 leading-tight">{item.activity}</h3>
+                                            {item.location && (
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-2 bg-slate-50 inline-flex px-2 py-1 rounded-md">
+                                                    <Icon name="map-pin" size={12} className="text-rose-600" />
+                                                    {item.location}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute right-4 bottom-4 opacity-10 text-indigo-900 pointer-events-none transform rotate-12 scale-150">
+                                            <Icon name={getIconName(item.activity + item.location)} size={48} />
+                                        </div>
+                                        <button onClick={() => handleDeleteActivity(item.id)} className="absolute top-3 right-3 text-slate-300 hover:text-rose-600 p-2 z-20">
+                                            <Icon name="trash-2" size={16} />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Input Area */}
+                    <div className="fixed bottom-6 left-4 right-4 z-30">
+                        <div className="max-w-2xl mx-auto bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100 p-1">
+                            <div className="flex flex-col gap-2 p-3">
+                                <div className="flex gap-2">
+                                    <div className="relative w-[35%]">
+                                        <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full pl-3 pr-2 py-2.5 bg-slate-50 hover:bg-white border-0 rounded-xl text-sm font-mono text-center focus:ring-2 focus:ring-indigo-500 transition-all text-slate-600 font-bold" />
+                                    </div>
+                                    <div className="relative flex-1">
+                                        <input type="text" placeholder="活動內容..." value={newActivity} onChange={(e) => setNewActivity(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 hover:bg-white border-0 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-400" />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <div className="relative flex-1 group">
+                                        <div className="absolute left-3 top-2.5 text-slate-400"><Icon name="map-pin" size={16} /></div>
+                                        <input type="text" placeholder="地點 (選填)" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 hover:bg-white border-0 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-400" />
+                                    </div>
+                                    <button onClick={handleAddActivity} className="bg-[#be123c] text-white w-12 h-10 rounded-xl flex items-center justify-center hover:bg-rose-700 active:scale-95 transition shadow-lg shadow-rose-900/20">
+                                        <Icon name="plus" size={24} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 安裝指南 Modal */}
+                    {showInstallGuide && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                                <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <Icon name="smartphone" className="text-indigo-600" /> 如何安裝 App
+                                </h3>
+                                <div className="space-y-4 text-sm text-slate-600">
+                                    <div className="bg-slate-50 p-3 rounded-lg">
+                                        <p className="font-bold text-indigo-900 mb-1">如果是 iOS (iPhone):</p>
+                                        <ol className="list-decimal list-inside space-y-1">
+                                            <li>用 Safari 開啟此檔案</li>
+                                            <li>點擊下方「分享」圖示 <Icon name="share" size={12} className="inline" /></li>
+                                            <li>選擇「加入主畫面」</li>
+                                        </ol>
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-lg">
+                                        <p className="font-bold text-indigo-900 mb-1">如果是 Android:</p>
+                                        <ol className="list-decimal list-inside space-y-1">
+                                            <li>用 Chrome 開啟此檔案</li>
+                                            <li>點擊右上角選單 <Icon name="more-vertical" size={12} className="inline" /></li>
+                                            <li>選擇「安裝應用程式」或「加到主畫面」</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowInstallGuide(false)} className="mt-6 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">
+                                    我知道了
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TravelPlanner />);
+    </script>
+</body>
+</html>
